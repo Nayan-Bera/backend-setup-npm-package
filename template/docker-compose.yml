@@ -1,0 +1,67 @@
+version: "3.9"
+
+services:
+  # ===== POSTGRES DATABASE =====
+  db:
+    image: postgres:17
+    container_name: backend_set_db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: testdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ===== ADMINER (DB UI) =====
+  adminer:
+    image: adminer
+    container_name: backend_set_adminer
+    restart: always
+    ports:
+      - "8081:8080"
+    depends_on:
+      - db
+    volumes:
+      - ./adminer.css:/var/www/html/adminer.css
+
+  # ===== YOUR EXPRESS APP =====
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: backend_set_app
+    restart: unless-stopped
+    ports:
+      - "3000:8003"
+
+    volumes:
+      - .:/app
+      - /app/node_modules
+
+    env_file:
+      - .env
+
+    environment:
+      - NODE_ENV=development
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=testdb
+
+    depends_on:
+      db:
+        condition: service_healthy
+
+    command: npm run dev
+
+volumes:
+  db-data:
